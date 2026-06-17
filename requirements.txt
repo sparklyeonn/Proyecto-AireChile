@@ -1,0 +1,12 @@
+pandas
+python-dotenv
+openpyxl
+requests
+numpy
+sqlalchemy
+psycopg2-binary
+scikit-learn
+joblib
+streamlit
+plotly
+pytest

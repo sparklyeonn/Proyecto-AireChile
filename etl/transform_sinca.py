@@ -128,10 +128,13 @@ def _construir_mp25(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[mask_validado, "mp25"]            = df.loc[mask_validado, "mp25_validado"]
     df.loc[mask_validado, "estado_registro"] = "validado"
 
-    # Completar con preliminar donde validado es nulo
+    # Completar con preliminar donde validado es nulo.
+    # Nota: se usa .values para evitar bug de pandas al asignar
+    # con .loc cuando la máscara selecciona 0 filas (array vacío).
     mask_prelim = df["mp25_validado"].isna() & df["mp25_preliminar"].notna()
-    df.loc[mask_prelim, "mp25"]            = df.loc[mask_prelim, "mp25_preliminar"]
-    df.loc[mask_prelim, "estado_registro"] = "preliminar"
+    if mask_prelim.any():
+        df.loc[mask_prelim, "mp25"]            = df.loc[mask_prelim, "mp25_preliminar"].values
+        df.loc[mask_prelim, "estado_registro"] = "preliminar"
 
     n_validado  = mask_validado.sum()
     n_prelim    = mask_prelim.sum()

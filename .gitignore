@@ -1,4 +1,35 @@
+# Variables de entorno locales
 .env
+.env.local
+.env.*.local
+
+# Entorno virtual
 .venv/
+venv/
+env/
+
+# Caché Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+
+# Datos generados
+data/raw/
+data/processed/
+
+# Modelos y métricas generadas
+models/model.pkl
+models/metrics/
+
+# Logs
+*.log
+logs/
+
+# Temporales
+*.tmp
+*.temp
+
+# Sistema
+.DS_Store
+Thumbs.db

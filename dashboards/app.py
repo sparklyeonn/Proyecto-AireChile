@@ -42,11 +42,12 @@ st.set_page_config(
 ROOT = Path(__file__).parent.parent
 
 PATHS = {
-    "dataset":     ROOT / "data/processed/dataset_modelo_base.csv",
-    "prediccion":  ROOT / "data/processed/prediccion_actual.csv",
-    "metrics":     ROOT / "models/metrics/model_metrics.json",
-    "fi":          ROOT / "models/metrics/feature_importance.csv",
-    "cm":          ROOT / "models/metrics/confusion_matrix.csv",
+    "dataset":         ROOT / "data/processed/dataset_modelo_base.csv",
+    "prediccion":      ROOT / "data/processed/prediccion_actual.csv",
+    "prediccion_7d":   ROOT / "data/processed/prediccion_7_dias.csv",
+    "metrics":         ROOT / "models/metrics/model_metrics.json",
+    "fi":              ROOT / "models/metrics/feature_importance.csv",
+    "cm":              ROOT / "models/metrics/confusion_matrix.csv",
 }
 
 # Colores del semáforo y gráficos
@@ -54,6 +55,12 @@ COLORES_NIVEL = {
     "buena":   "#27ae60",
     "regular": "#f39c12",
     "mala":    "#e74c3c",
+}
+
+EMOJIS = {
+    "buena": "🟢",
+    "regular": "🟡",
+    "mala": "🔴",
 }
 COLOR_MP25    = "#2980b9"
 COLOR_METEO   = "#8e44ad"
@@ -73,10 +80,18 @@ def cargar_dataset() -> pd.DataFrame | None:
 
 @st.cache_data(ttl=300)
 def cargar_prediccion() -> pd.DataFrame | None:
-    """Carga la predicción actual."""
+    """Carga la predicción del día siguiente."""
     if not PATHS["prediccion"].exists():
         return None
     return pd.read_csv(PATHS["prediccion"])
+
+
+@st.cache_data(ttl=300)
+def cargar_prediccion_7_dias() -> pd.DataFrame | None:
+    """Carga el pronóstico de los próximos 7 días."""
+    if not PATHS["prediccion_7d"].exists():
+        return None
+    return pd.read_csv(PATHS["prediccion_7d"], parse_dates=["fecha"])
 
 
 @st.cache_data(ttl=300)
@@ -174,13 +189,14 @@ with st.sidebar:
     st.markdown(
         "<small>Datos: SINCA MMA Chile<br>"
         "Clima: Open-Meteo API<br>"
-        "Modelo: RandomForest</small>",
+        "Modelo: RandomForest + pronóstico 7 días</small>",
         unsafe_allow_html=True,
     )
 
 # Cargar datos una vez para todas las secciones
 df        = cargar_dataset()
 pred_df   = cargar_prediccion()
+pred_7d   = cargar_prediccion_7_dias()
 metricas  = cargar_metricas()
 fi_df     = cargar_feature_importance()
 cm_df     = cargar_confusion_matrix()
@@ -227,8 +243,7 @@ pasó, no lo que viene.
 
 **La solución:** AireChile Analytics analiza datos históricos de calidad
 del aire (SINCA), los combina con condiciones meteorológicas (Open-Meteo)
-y predice si el día siguiente será **buena, regular o mala** calidad del
-aire, con horas de anticipación.
+y predice si los próximos días tendrán calidad del aire **buena, regular o mala**, con enfoque operativo para anticipar decisiones.
         """)
 
     with col2:
@@ -560,63 +575,155 @@ elif seccion == "🌡️ Meteorología":
 
 
 # ===========================================================================
-# SECCIÓN 4 — PREDICCIÓN
+# SECCIÓN 4 — PREDICCIÓN (7 DÍAS + DÍA SIGUIENTE)
 # ===========================================================================
 elif seccion == "🔮 Predicción":
     st.title("🔮 Predicción de calidad del aire")
 
-    if pred_df is None:
+    # ---------------------------------------------------------------
+    # Subsección A: Pronóstico 7 días (prioridad visual)
+    # ---------------------------------------------------------------
+    st.subheader("📅 Pronóstico para los próximos 7 días")
+
+    if pred_7d is None:
         st.error(
-            "No se encontró `prediccion_actual.csv`. "
-            "Ejecuta: `python models/predict.py`"
+            "No se encontró prediccion_7_dias.csv. "
+            "Ejecuta: python etl/extract_meteo_forecast.py "
+            "y luego: python models/predict_7_days.py"
         )
-        st.stop()
+    else:
+        fecha_gen = pred_7d["fecha_generacion"].iloc[0] if "fecha_generacion" in pred_7d.columns else "—"
+        st.caption(f"Generado el: {fecha_gen} | Estación: {pred_7d['estacion'].iloc[0]}")
 
-    pred = pred_df.iloc[0]
-    nivel = pred["nivel_predicho"]
-    color = COLORES_NIVEL.get(nivel, "#7f8c8d")
-    prob  = float(pred["probabilidad_predicho"])
-    emoji = {"buena": "🟢", "regular": "🟡", "mala": "🔴"}.get(nivel, "❓")
+        # Tarjetas de semáforo por día
+        cols = st.columns(7)
+        for i, (_, row) in enumerate(pred_7d.iterrows()):
+            nivel  = row["nivel_calidad_aire_predicho"]
+            emoji  = EMOJIS.get(nivel, "❓")
+            color  = COLORES_NIVEL.get(nivel, "#7f8c8d")
+            fecha_d = pd.Timestamp(row["fecha"]).strftime("%d/%m")
+            mp25_e  = row["mp25_estimado"]
 
-    # Tarjeta semáforo
-    st.markdown(
-        f"""
-        <div class="semaforo-card" style="background-color:{color}; margin-bottom:24px;">
-            <div style="font-size:3rem">{emoji}</div>
-            <div style="font-size:2rem; font-weight:700; text-transform:uppercase;">
-                {nivel}
-            </div>
-            <div style="font-size:1.1rem; margin-top:8px;">
-                Calidad del aire esperada para mañana
-            </div>
-            <div style="font-size:1.4rem; margin-top:8px; font-weight:600;">
-                {pred['fecha_predicha']}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            with cols[i]:
+                st.markdown(
+                    f"""
+                    <div style="background:{color};border-radius:10px;
+                                padding:12px 4px;text-align:center;color:white;">
+                        <div style="font-size:1.5rem">{emoji}</div>
+                        <div style="font-size:0.8rem;font-weight:600">{fecha_d}</div>
+                        <div style="font-size:0.75rem">Día {int(row['horizonte_dia'])}</div>
+                        <div style="font-size:0.85rem;margin-top:4px">
+                            {mp25_e:.0f} µg/m³
+                        </div>
+                        <div style="font-size:0.7rem;text-transform:capitalize">
+                            {nivel}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-    # Datos de contexto
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Fecha base (hoy)", pred["fecha_base"])
-    col2.metric("Fecha predicha", pred["fecha_predicha"])
-    col3.metric("Nivel predicho", f"{emoji} {nivel.upper()}")
-    col4.metric("Confianza", f"{prob:.0%}")
+        st.markdown("")
+
+        # Gráfico de línea MP2.5 estimado
+        fig_7d = go.Figure()
+        fig_7d.add_trace(go.Scatter(
+            x=pred_7d["fecha"],
+            y=pred_7d["mp25_estimado"],
+            mode="lines+markers",
+            name="MP2.5 estimado",
+            line=dict(color=COLOR_MP25, width=2.5),
+            marker=dict(size=10, color=[
+                COLORES_NIVEL.get(n, "#7f8c8d")
+                for n in pred_7d["nivel_calidad_aire_predicho"]
+            ]),
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>"
+                          "MP2.5 estimado: %{y:.1f} µg/m³<extra></extra>",
+        ))
+        fig_7d.add_hline(y=25, line_dash="dash", line_color="#27ae60",
+                         annotation_text="Umbral buena (25)")
+        fig_7d.add_hline(y=50, line_dash="dash", line_color="#e74c3c",
+                         annotation_text="Umbral mala (50)")
+        fig_7d.update_layout(
+            title="Estimación de MP2.5 — próximos 7 días",
+            height=320,
+            yaxis_title="µg/m³",
+            xaxis_title="",
+            margin=dict(t=50, b=20),
+            hovermode="x",
+        )
+        st.plotly_chart(fig_7d, use_container_width=True)
+
+        # Tabla resumen
+        st.subheader("Tabla de pronóstico")
+        df_tabla = pred_7d[[
+            "horizonte_dia", "fecha", "mp25_estimado",
+            "nivel_calidad_aire_predicho",
+            "temperatura_max", "temperatura_min",
+            "velocidad_viento", "precipitacion",
+        ]].copy()
+        df_tabla.columns = [
+            "Día", "Fecha", "MP2.5 estimado (µg/m³)",
+            "Calidad del aire",
+            "T° máx (°C)", "T° mín (°C)",
+            "Viento (km/h)", "Precip. (mm)",
+        ]
+        df_tabla["MP2.5 estimado (µg/m³)"] = df_tabla["MP2.5 estimado (µg/m³)"].round(1)
+        st.dataframe(df_tabla, use_container_width=True, hide_index=True)
+
+        # Recomendación según el peor día
+        peor_nivel = "mala" if "mala" in pred_7d["nivel_calidad_aire_predicho"].values else                      ("regular" if "regular" in pred_7d["nivel_calidad_aire_predicho"].values else "buena")
+
+        st.markdown("#### Recomendación para la semana")
+        if peor_nivel == "mala":
+            st.error(
+                "Alerta: se esperan días con calidad del aire MALA esta semana. "
+                "Limitar actividad física intensa al aire libre. "
+                "Alertar a colegios y clinicas. Evitar encender chimeneas a lena."
+            )
+        elif peor_nivel == "regular":
+            st.warning(
+                "Precaucion: se esperan días con calidad del aire REGULAR esta semana. "
+                "Atencion especial para grupos sensibles (ninos, adultos mayores, "
+                "personas con enfermedades respiratorias)."
+            )
+        else:
+            st.success(
+                "Buenas condiciones de calidad del aire esperadas esta semana. "
+                "No se anticipan restricciones ambientales."
+            )
 
     st.markdown("---")
 
-    # Probabilidades por clase
-    col_izq, col_der = st.columns([1, 1.5])
+    # ---------------------------------------------------------------
+    # Subsección B: Predicción día siguiente (mantener compatibilidad)
+    # ---------------------------------------------------------------
+    st.subheader("📍 Predicción del día siguiente (modelo clasificador)")
 
-    with col_izq:
-        st.subheader("Probabilidades por clase")
+    if pred_df is None:
+        st.warning(
+            "No se encontró `prediccion_actual.csv`. "
+            "Ejecuta: `python models/predict.py`"
+        )
+    else:
+        pred    = pred_df.iloc[0]
+        nivel   = pred["nivel_predicho"]
+        color   = COLORES_NIVEL.get(nivel, "#7f8c8d")
+        prob    = float(pred["probabilidad_predicho"])
+        emoji   = EMOJIS.get(nivel, "❓")
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Fecha base (hoy)",  pred["fecha_base"])
+        col2.metric("Fecha predicha",    pred["fecha_predicha"])
+        col3.metric("Nivel predicho",    f"{emoji} {nivel.upper()}")
+        col4.metric("Confianza",         f"{prob:.0%}")
+
         prob_data = pd.DataFrame({
             "Clase": ["Buena", "Regular", "Mala"],
             "Probabilidad": [
-                float(pred.get("prob_buena", 0)),
+                float(pred.get("prob_buena",   0)),
                 float(pred.get("prob_regular", 0)),
-                float(pred.get("prob_mala", 0)),
+                float(pred.get("prob_mala",    0)),
             ],
             "Color": ["#27ae60", "#f39c12", "#e74c3c"],
         })
@@ -629,57 +736,12 @@ elif seccion == "🔮 Predicción":
             textposition="outside",
         ))
         fig_prob.update_layout(
-            height=220, margin=dict(t=10, b=10, l=10, r=60),
+            height=200,
+            margin=dict(t=10, b=10, l=10, r=60),
             xaxis=dict(range=[0, 1.1], tickformat=".0%"),
             showlegend=False,
         )
         st.plotly_chart(fig_prob, use_container_width=True)
-
-        st.markdown(f"**MP2.5 base (hoy):** {pred.get('mp25_base', 'N/D')} µg/m³")
-
-    with col_der:
-        st.subheader("Recomendación operativa")
-        if nivel == "buena":
-            st.success(
-                "✅ **Condiciones aceptables**\n\n"
-                "La calidad del aire mañana se espera dentro de rangos normales. "
-                "No se anticipan restricciones ambientales. "
-                "Actividades al aire libre son seguras para toda la población."
-            )
-        elif nivel == "regular":
-            st.warning(
-                "⚠️ **Precaución — grupos sensibles**\n\n"
-                "Se esperan niveles moderados de contaminación. "
-                "Se recomienda precaución para niños, adultos mayores y personas "
-                "con enfermedades respiratorias. Evitar ejercicio físico intenso "
-                "al aire libre en horas de alta contaminación (mañana temprana)."
-            )
-        else:
-            st.error(
-                "🚨 **Alerta — riesgo alto**\n\n"
-                "Se esperan niveles altos de MP2.5. Posible preemergencia ambiental. "
-                "Se recomienda:\n"
-                "- Limitar actividad física intensa al aire libre\n"
-                "- Mantener ventanas cerradas en horas pico\n"
-                "- Evitar encender chimeneas o calefactores a leña\n"
-                "- Mantener informados a colegios y centros de salud"
-            )
-
-    # Historial reciente
-    if df is not None:
-        st.markdown("---")
-        st.subheader("Contexto: últimos 30 días")
-        df_rec = df.tail(30).copy()
-        fig_rec = px.bar(
-            df_rec, x="fecha", y="mp25",
-            color="nivel_calidad_aire",
-            color_discrete_map=COLORES_NIVEL,
-            title="MP2.5 últimos 30 días",
-        )
-        fig_rec.add_hline(y=25, line_dash="dash", line_color="#27ae60")
-        fig_rec.add_hline(y=50, line_dash="dash", line_color="#e74c3c")
-        fig_rec.update_layout(height=300, margin=dict(t=40, b=20), showlegend=False)
-        st.plotly_chart(fig_rec, use_container_width=True)
 
 
 # ===========================================================================
@@ -860,6 +922,10 @@ elif seccion == "⚙️ Vista técnica":
         "                                       ↓\n"
         "                           predict.py → prediccion_actual.csv\n"
         "                                       ↓\n"
+        "              extract_meteo_forecast.py + predict_7_days.py\n"
+        "                                       ↓\n"
+        "                         prediccion_7_dias.csv\n"
+        "                                       ↓\n"
         "                           dashboards/app.py (este dashboard)",
         language="text",
     )
@@ -874,6 +940,8 @@ elif seccion == "⚙️ Vista técnica":
          "python etl/etl_meteo_main.py"),
         ("prediccion_actual.csv",   PATHS["prediccion"],
          "python models/predict.py"),
+        ("prediccion_7_dias.csv",   PATHS["prediccion_7d"],
+         "python models/predict_7_days.py"),
         ("model_metrics.json",      PATHS["metrics"],
          "python models/train_model.py"),
         ("feature_importance.csv",  PATHS["fi"],
@@ -948,11 +1016,15 @@ elif seccion == "⚙️ Vista técnica":
         "python etl/etl_meteo_main.py\n\n"
         "# 3. Entrenar modelo\n"
         "python models/train_model.py\n\n"
-        "# 4. Generar predicción\n"
+        "# 4. Generar predicción día siguiente\n"
         "python models/predict.py\n\n"
-        "# 5. Lanzar dashboard\n"
+        "# 5. Generar pronóstico 7 días\n"
+        "python etl/extract_meteo_forecast.py\n"
+        "python models/train_forecast_model.py\n"
+        "python models/predict_7_days.py\n\n"
+        "# 6. Lanzar dashboard\n"
         "streamlit run dashboards/app.py\n\n"
-        "# 6. Ejecutar todos los tests\n"
+        "# 7. Ejecutar todos los tests\n"
         "pytest tests/ -v",
         language="bash",
     )

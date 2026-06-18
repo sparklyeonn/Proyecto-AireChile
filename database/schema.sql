@@ -136,3 +136,29 @@ COMMENT ON TABLE meteorologia         IS 'Datos meteorológicos diarios Open-Met
 COMMENT ON TABLE dataset_modelo       IS 'Dataset consolidado SINCA+Meteo listo para RandomForest';
 COMMENT ON TABLE predicciones_modelo  IS 'Predicciones del modelo de calidad del aire';
 COMMENT ON TABLE log_etl              IS 'Log de ejecuciones del pipeline ETL';
+
+-- -------------------------------------------------------------
+-- Tabla: predicciones_7_dias
+-- Pronóstico de calidad del aire para los próximos 7 días.
+-- Corresponde al CSV: data/processed/prediccion_7_dias.csv
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS predicciones_7_dias (
+    id                          SERIAL PRIMARY KEY,
+    fecha                       DATE        NOT NULL,
+    estacion                    VARCHAR(100) NOT NULL,
+    comuna                      VARCHAR(80)  NOT NULL,
+    mp25_estimado               DECIMAL(8, 2),
+    nivel_calidad_aire_predicho VARCHAR(10)
+        CHECK (nivel_calidad_aire_predicho IN ('buena', 'regular', 'mala')),
+    temperatura_max             DECIMAL(5, 2),
+    temperatura_min             DECIMAL(5, 2),
+    temperatura_promedio        DECIMAL(5, 2),
+    humedad_relativa            DECIMAL(5, 2),
+    velocidad_viento            DECIMAL(6, 2),
+    precipitacion               DECIMAL(6, 2),
+    horizonte_dia               SMALLINT CHECK (horizonte_dia BETWEEN 1 AND 7),
+    fecha_generacion            TIMESTAMP,
+    UNIQUE (fecha, estacion)
+);
+
+COMMENT ON TABLE predicciones_7_dias IS 'Pronóstico recursivo de calidad del aire a 7 días';

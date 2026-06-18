@@ -1,0 +1,65 @@
+.dockerignore
+# =============================================================
+# .dockerignore — AireChile Analytics
+# Archivos y carpetas que NO se copian al contenedor Docker.
+# Funciona igual que .gitignore pero para el contexto de build.
+# =============================================================
+
+# Entorno virtual Python (el contenedor instala sus propias dependencias)
+.venv/
+venv/
+env/
+ENV/
+
+# Variables de entorno reales (NUNCA al contenedor)
+.env
+
+# Datos crudos y procesados (se montan como volumen si se necesitan)
+data/raw/
+data/processed/
+
+# Modelo entrenado y métricas (se montan como volumen)
+models/model.pkl
+models/metrics/
+
+# Control de versiones
+.git/
+.gitignore
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Cache de pytest y cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+# Archivos temporales
+*.tmp
+*.temp

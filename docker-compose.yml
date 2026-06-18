@@ -1,0 +1,78 @@
+# =============================================================
+# docker-compose.yml - AireChile Analytics
+# =============================================================
+# Levanta dos servicios:
+#   postgres  -> base de datos PostgreSQL 15
+#   dashboard -> aplicacion Streamlit + pipeline ETL
+#
+# NOTA DE PUERTOS:
+#   PostgreSQL local ocupa 5432 en Windows.
+#   El contenedor postgres se publica en 5433 (host) -> 5432 (contenedor).
+#   La comunicacion ENTRE contenedores usa postgres:5432 (red interna Docker).
+#   Desde Windows/PowerShell: conectar a localhost:5433.
+# =============================================================
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: airechile_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-airechile}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-airechile}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - airechile_net
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airechile_dashboard
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-airechile}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SINCA_RAW_PATH: ${SINCA_RAW_PATH:-data/raw/sinca_puente_alto_mp25_2022_2026.csv}
+      SINCA_PROCESSED_PATH: ${SINCA_PROCESSED_PATH:-data/processed/sinca_transformado.csv}
+      METEO_RAW_PATH: ${METEO_RAW_PATH:-data/raw/open_meteo_puente_alto_2022_2026.csv}
+      METEO_PROCESSED_PATH: ${METEO_PROCESSED_PATH:-data/processed/open_meteo_transformado.csv}
+      DATASET_MODELO_BASE_PATH: ${DATASET_MODELO_BASE_PATH:-data/processed/dataset_modelo_base.csv}
+      PREDICTION_OUTPUT_PATH: ${PREDICTION_OUTPUT_PATH:-data/processed/prediccion_actual.csv}
+      MODEL_OUTPUT_PATH: ${MODEL_OUTPUT_PATH:-models/model.pkl}
+      MODEL_METRICS_DIR: ${MODEL_METRICS_DIR:-models/metrics}
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./docs:/app/docs
+    networks:
+      - airechile_net
+
+volumes:
+  postgres_data:
+    name: airechile_postgres_data
+
+networks:
+  airechile_net:
+    name: airechile_network
+    driver: bridge

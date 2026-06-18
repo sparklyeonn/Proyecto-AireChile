@@ -1549,4 +1549,7 @@ fecha,estacion,comuna,mp25,estado_registro,nivel_calidad_aire,mes,dia_semana,mp2
 2026-06-10,Puente Alto,Puente Alto,23.0,preliminar,buena,6,2,37.0,43.43,buena
 2026-06-11,Puente Alto,Puente Alto,23.0,preliminar,buena,6,3,23.0,41.14,regular
 2026-06-12,Puente Alto,Puente Alto,30.0,preliminar,regular,6,4,23.0,39.43,regular
-2026-06-13,Puente Alto,Puente Alto,42.0,preliminar,regular,6,5,30.0,37.0,
+2026-06-13,Puente Alto,Puente Alto,42.0,preliminar,regular,6,5,30.0,37.0,regular
+2026-06-14,Puente Alto,Puente Alto,39.0,preliminar,regular,6,6,42.0,34.57,mala
+2026-06-15,Puente Alto,Puente Alto,52.0,preliminar,mala,6,0,39.0,33.43,mala
+2026-06-16,Puente Alto,Puente Alto,58.0,preliminar,mala,6,1,52.0,35.14,

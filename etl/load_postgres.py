@@ -67,6 +67,10 @@ CARGAS = {
         ROOT / os.getenv("PREDICTION_OUTPUT_PATH", "data/processed/prediccion_actual.csv"),
         "predicciones_modelo",
     ),
+    "Predicción 7 días": (
+        ROOT / os.getenv("PREDICTION_7_DAYS_OUTPUT_PATH", "data/processed/prediccion_7_dias.csv"),
+        "predicciones_7_dias",
+    ),
 }
 
 # Columnas de fecha que deben convertirse a datetime antes de cargar
@@ -74,7 +78,8 @@ COLS_FECHA = {
     "mediciones_sinca":    ["fecha"],
     "meteorologia":        ["fecha"],
     "dataset_modelo":      ["fecha"],
-    "predicciones_modelo": ["fecha_base", "fecha_predicha"],
+    "predicciones_modelo":   ["fecha_base", "fecha_predicha"],
+    "predicciones_7_dias":   ["fecha", "fecha_generacion"],
 }
 
 

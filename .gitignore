@@ -33,3 +33,4 @@ logs/
 # Sistema
 .DS_Store
 Thumbs.db
+models/model_mp25_regressor.pkl

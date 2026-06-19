@@ -1,0 +1,4 @@
+,pred_buena,pred_mala,pred_regular
+real_buena,230,0,22
+real_mala,0,7,6
+real_regular,8,5,32

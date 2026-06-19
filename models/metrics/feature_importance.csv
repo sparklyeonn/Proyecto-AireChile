@@ -1,0 +1,12 @@
+feature,importancia
+mp25,0.3266
+mp25_promedio_7d,0.1371
+mp25_dia_anterior,0.1152
+velocidad_viento,0.099
+temperatura_promedio,0.0822
+temperatura_max,0.0648
+temperatura_min,0.0604
+mes,0.0347
+humedad_relativa,0.0318
+dia_semana,0.0292
+precipitacion,0.019

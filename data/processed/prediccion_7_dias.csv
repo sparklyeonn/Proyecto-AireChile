@@ -1,0 +1,8 @@
+fecha,estacion,comuna,mp25_estimado,nivel_calidad_aire_predicho,temperatura_max,temperatura_min,temperatura_promedio,humedad_relativa,velocidad_viento,precipitacion,horizonte_dia,fecha_generacion
+2026-06-17,Puente Alto,Puente Alto,57.6,mala,19.4,7.5,12.5,40.0,4.6,0.0,1,2026-06-18 18:53:28
+2026-06-18,Puente Alto,Puente Alto,47.41,regular,14.4,6.5,10.4,84.0,7.0,2.9,2,2026-06-18 18:53:28
+2026-06-19,Puente Alto,Puente Alto,42.43,regular,18.1,4.6,10.9,56.0,5.4,0.0,3,2026-06-18 18:53:28
+2026-06-20,Puente Alto,Puente Alto,35.01,regular,13.4,7.7,10.2,70.0,5.6,1.5,4,2026-06-18 18:53:28
+2026-06-21,Puente Alto,Puente Alto,30.14,regular,10.2,3.3,7.3,80.0,6.3,1.2,5,2026-06-18 18:53:28
+2026-06-22,Puente Alto,Puente Alto,31.1,regular,12.4,0.1,5.8,55.0,6.4,0.0,6,2026-06-18 18:53:28
+2026-06-23,Puente Alto,Puente Alto,32.14,regular,16.2,3.0,9.0,46.0,4.7,0.0,7,2026-06-18 18:53:28

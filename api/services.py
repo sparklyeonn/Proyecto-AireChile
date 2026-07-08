@@ -22,7 +22,7 @@ import pandas as pd
 
 from api.schemas import (
     PrediccionActualResponse,
-    DiaPronóstico,
+    DiaPronostico,
     Forecast7DiasResponse,
     MetricasResponse,
     MetricasPorClase,
@@ -148,7 +148,7 @@ def get_forecast_7_dias() -> Forecast7DiasResponse:
     dias = []
     for _, row in df.iterrows():
         nivel = str(row.get("nivel_calidad_aire_predicho", "")).lower()
-        dias.append(DiaPronóstico(
+        dias.append(DiaPronostico(
             horizonte_dia               = int(row.get("horizonte_dia", 0)),
             fecha                       = str(row["fecha"].date()) if hasattr(row["fecha"], "date") else str(row["fecha"])[:10],
             mp25_estimado               = round(float(row.get("mp25_estimado", 0)), 2),

@@ -64,7 +64,7 @@ class Forecast7DiasResponse(BaseModel):
     """Pronóstico completo de los próximos 7 días."""
     estacion: str = Field(..., example="Puente Alto")
     fecha_generacion: Optional[str] = Field(None, example="2026-06-08 21:00:00")
-    dias: list[DiaPronóstico]
+    dias: list[DiaPronostico]
 
 
 # ---------------------------------------------------------------------------

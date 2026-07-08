@@ -1,0 +1,12 @@
+{
+  "mejores_parametros": {
+    "max_depth": 10,
+    "min_samples_split": 5,
+    "n_estimators": 200
+  },
+  "mejor_score_cv": 0.8458,
+  "metrica_cv": "f1_weighted",
+  "cv_tipo": "TimeSeriesSplit",
+  "n_splits_cv": 3,
+  "justificacion_cv": "Se usa TimeSeriesSplit porque los datos tienen orden temporal. Esto reduce el riesgo de data leakage durante el tuning."
+}

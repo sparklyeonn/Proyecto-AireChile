@@ -1,0 +1,5 @@
+modelo,mae,rmse,r2
+LinearRegression,4.215,6.621,0.7029
+RandomForestRegressor,4.361,6.662,0.6991
+GradientBoostingRegressor,4.465,6.875,0.6796
+DecisionTreeRegressor,5.649,8.844,0.4698

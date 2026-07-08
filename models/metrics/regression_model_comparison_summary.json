@@ -1,0 +1,18 @@
+{
+  "mejor_modelo": "LinearRegression",
+  "metrica_seleccion": "rmse",
+  "mejor_rmse": 6.621,
+  "mejor_mae": 4.215,
+  "mejor_r2": 0.7029,
+  "justificacion": "LinearRegression obtuvo el menor RMSE. Esto indica una relación aproximadamente lineal en este conjunto, aunque puede no capturar interacciones no lineales asociadas a meteorología y contaminación.",
+  "cantidad_modelos_comparados": 4,
+  "split_tipo": "temporal",
+  "cv_tipo_tuning": "TimeSeriesSplit",
+  "modelos_comparados": [
+    "LinearRegression",
+    "RandomForestRegressor",
+    "GradientBoostingRegressor",
+    "DecisionTreeRegressor"
+  ],
+  "interpretacion_rmse": "El RMSE indica el error promedio penalizando más los errores grandes. En este proyecto se interpreta directamente en µg/m³ de MP2.5."
+}

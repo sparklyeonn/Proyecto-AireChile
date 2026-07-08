@@ -1,0 +1,12 @@
+{
+  "mejores_parametros": {
+    "max_depth": 5,
+    "min_samples_split": 5,
+    "n_estimators": 200
+  },
+  "mejor_score_cv": 7.081,
+  "metrica_cv": "rmse (neg_root_mean_squared_error)",
+  "cv_tipo": "TimeSeriesSplit",
+  "n_splits_cv": 3,
+  "nota": "El RMSE se interpreta en µg/m³. Se usa TimeSeriesSplit para evitar fuga de información temporal durante el tuning."
+}

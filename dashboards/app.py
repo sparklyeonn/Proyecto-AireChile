@@ -48,6 +48,14 @@ PATHS = {
     "metrics":         ROOT / "models/metrics/model_metrics.json",
     "fi":              ROOT / "models/metrics/feature_importance.csv",
     "cm":              ROOT / "models/metrics/confusion_matrix.csv",
+
+    # Resultados de comparación de modelos y tuning
+    "classification_comparison": ROOT / "models/metrics/classification_model_comparison.csv",
+    "classification_summary":    ROOT / "models/metrics/classification_model_comparison_summary.json",
+    "classification_tuning":     ROOT / "models/metrics/classification_tuning_results.json",
+    "regression_comparison":     ROOT / "models/metrics/regression_model_comparison.csv",
+    "regression_summary":        ROOT / "models/metrics/regression_model_comparison_summary.json",
+    "regression_tuning":         ROOT / "models/metrics/regression_tuning_results.json",
 }
 
 # Colores del semáforo y gráficos
@@ -115,6 +123,244 @@ def cargar_confusion_matrix() -> pd.DataFrame | None:
     if not PATHS["cm"].exists():
         return None
     return pd.read_csv(PATHS["cm"], index_col=0)
+
+
+@st.cache_data(ttl=300)
+def cargar_csv_seguro(path_str: str) -> pd.DataFrame | None:
+    """
+    Carga un CSV de manera segura.
+
+    Se usa para archivos opcionales del dashboard, como la comparación de
+    modelos. Si el archivo no existe, está vacío o tiene problemas de lectura,
+    retorna None en vez de romper la aplicación.
+    """
+    path = Path(path_str)
+    if not path.exists():
+        return None
+
+    try:
+        df_csv = pd.read_csv(path)
+        if df_csv.empty:
+            return None
+        return df_csv
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=300)
+def cargar_json_seguro(path_str: str) -> dict | None:
+    """
+    Carga un JSON de manera segura.
+
+    Esta función evita que un JSON faltante o mal formado detenga el dashboard.
+    """
+    path = Path(path_str)
+    if not path.exists():
+        return None
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def mostrar_estado_archivo_opcional(nombre: str, ruta: Path, comando: str) -> None:
+    """
+    Muestra un mensaje de estado para archivos opcionales.
+
+    A diferencia de los archivos críticos del sistema, estos archivos pueden no
+    existir y el dashboard debe seguir funcionando.
+    """
+    if ruta.exists():
+        size_kb = ruta.stat().st_size / 1024
+        st.success(f"✅ `{nombre}` — {size_kb:.1f} KB")
+    else:
+        st.warning(f"⚠️ `{nombre}` no encontrado → Ejecuta: `{comando}`")
+
+
+def mostrar_comparacion_modelos() -> None:
+    """
+    Muestra la comparación de modelos de clasificación y regresión.
+
+    Esta sección permite defender la elección del modelo final con evidencia:
+    tablas de métricas, modelo ganador, justificación y resultados de tuning.
+    """
+    st.subheader("🔬 Comparación de modelos")
+    st.markdown(
+        """
+Esta sección compara distintos algoritmos para justificar la selección del
+modelo final. En **clasificación** se prioriza el **F1 ponderado**, porque
+considera el desbalance entre clases. En **regresión** se prioriza el **RMSE**,
+porque penaliza con mayor fuerza los errores grandes en la estimación de MP2.5.
+
+El tuning se realiza con **TimeSeriesSplit** para respetar el orden temporal de
+los datos y reducir el riesgo de fuga de información futura.
+        """
+    )
+
+    clf_df = cargar_csv_seguro(str(PATHS["classification_comparison"]))
+    clf_summary = cargar_json_seguro(str(PATHS["classification_summary"]))
+    clf_tuning = cargar_json_seguro(str(PATHS["classification_tuning"]))
+
+    reg_df = cargar_csv_seguro(str(PATHS["regression_comparison"]))
+    reg_summary = cargar_json_seguro(str(PATHS["regression_summary"]))
+    reg_tuning = cargar_json_seguro(str(PATHS["regression_tuning"]))
+
+    if clf_df is None and reg_df is None:
+        st.warning(
+            "No se encontraron resultados de comparación de modelos. "
+            "Ejecuta primero:\n\n"
+            "`python models/compare_classification_models.py`\n\n"
+            "`python models/compare_regression_models.py`"
+        )
+        return
+
+    tab_clf, tab_reg = st.tabs(["📊 Clasificación", "📈 Regresión"])
+
+    # ------------------------------------------------------------------
+    # Clasificación
+    # ------------------------------------------------------------------
+    with tab_clf:
+        st.markdown("### Modelos de clasificación")
+
+        if clf_df is None:
+            st.warning(
+                "No se encontró `classification_model_comparison.csv`. "
+                "Ejecuta: `python models/compare_classification_models.py`"
+            )
+        else:
+            columnas_clf = [
+                c for c in [
+                    "modelo",
+                    "accuracy",
+                    "precision_weighted",
+                    "recall_weighted",
+                    "f1_weighted",
+                ]
+                if c in clf_df.columns
+            ]
+
+            st.dataframe(
+                clf_df[columnas_clf],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            if {"modelo", "f1_weighted"}.issubset(clf_df.columns):
+                fig_clf = px.bar(
+                    clf_df.sort_values("f1_weighted", ascending=True),
+                    x="f1_weighted",
+                    y="modelo",
+                    orientation="h",
+                    text="f1_weighted",
+                    title="F1 ponderado por modelo de clasificación",
+                    color="f1_weighted",
+                    color_continuous_scale="Blues",
+                )
+                fig_clf.update_traces(texttemplate="%{text:.3f}", textposition="outside")
+                fig_clf.update_layout(
+                    height=320,
+                    xaxis_title="F1 ponderado",
+                    yaxis_title="Modelo",
+                    coloraxis_showscale=False,
+                    margin=dict(t=50, b=20, r=40),
+                )
+                st.plotly_chart(fig_clf, use_container_width=True)
+
+        if clf_summary:
+            st.markdown("#### Resumen de selección")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Mejor modelo", clf_summary.get("mejor_modelo", "N/D"))
+            col2.metric("Métrica usada", clf_summary.get("metrica_seleccion", "N/D"))
+
+            mejor_f1 = clf_summary.get("mejor_f1_weighted")
+            col3.metric(
+                "Mejor F1 weighted",
+                f"{mejor_f1:.3f}" if isinstance(mejor_f1, (int, float)) else "N/D",
+            )
+
+            justificacion = clf_summary.get("justificacion")
+            if justificacion:
+                st.info(justificacion)
+
+        if clf_tuning:
+            with st.expander("Ver tuning de clasificación"):
+                col1, col2 = st.columns(2)
+                col1.metric("Score CV", clf_tuning.get("mejor_score_cv", "N/D"))
+                col2.metric("CV usado", clf_tuning.get("cv_tipo", "N/D"))
+                st.markdown("**Mejores parámetros:**")
+                st.json(clf_tuning.get("mejores_parametros", {}))
+
+    # ------------------------------------------------------------------
+    # Regresión
+    # ------------------------------------------------------------------
+    with tab_reg:
+        st.markdown("### Modelos de regresión")
+
+        if reg_df is None:
+            st.warning(
+                "No se encontró `regression_model_comparison.csv`. "
+                "Ejecuta: `python models/compare_regression_models.py`"
+            )
+        else:
+            columnas_reg = [
+                c for c in ["modelo", "mae", "rmse", "r2"]
+                if c in reg_df.columns
+            ]
+
+            st.dataframe(
+                reg_df[columnas_reg],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            if {"modelo", "rmse"}.issubset(reg_df.columns):
+                fig_reg = px.bar(
+                    reg_df.sort_values("rmse", ascending=False),
+                    x="rmse",
+                    y="modelo",
+                    orientation="h",
+                    text="rmse",
+                    title="RMSE por modelo de regresión",
+                    color="rmse",
+                    color_continuous_scale="Reds",
+                )
+                fig_reg.update_traces(texttemplate="%{text:.3f}", textposition="outside")
+                fig_reg.update_layout(
+                    height=320,
+                    xaxis_title="RMSE (µg/m³)",
+                    yaxis_title="Modelo",
+                    coloraxis_showscale=False,
+                    margin=dict(t=50, b=20, r=40),
+                )
+                st.plotly_chart(fig_reg, use_container_width=True)
+
+        if reg_summary:
+            st.markdown("#### Resumen de selección")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Mejor modelo", reg_summary.get("mejor_modelo", "N/D"))
+            col2.metric("Métrica usada", reg_summary.get("metrica_seleccion", "N/D"))
+
+            mejor_rmse = reg_summary.get("mejor_rmse")
+            col3.metric(
+                "Mejor RMSE",
+                f"{mejor_rmse:.3f} µg/m³"
+                if isinstance(mejor_rmse, (int, float))
+                else "N/D",
+            )
+
+            justificacion = reg_summary.get("justificacion")
+            if justificacion:
+                st.info(justificacion)
+
+        if reg_tuning:
+            with st.expander("Ver tuning de regresión"):
+                col1, col2 = st.columns(2)
+                col1.metric("Score CV", reg_tuning.get("mejor_score_cv", "N/D"))
+                col2.metric("CV usado", reg_tuning.get("cv_tipo", "N/D"))
+                st.markdown("**Mejores parámetros:**")
+                st.json(reg_tuning.get("mejores_parametros", {}))
 
 
 # ---------------------------------------------------------------------------
@@ -766,8 +1012,14 @@ elif seccion == "🤖 Modelo":
     col4.metric("Recall",        f"{metricas['recall_weighted']:.1%}")
 
     st.markdown("---")
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📊 Por clase", "🎯 Feature importance", "🔲 Confusión", "📚 Metodología"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "📊 Por clase",
+            "🎯 Feature importance",
+            "🔲 Confusión",
+            "📚 Metodología",
+            "🔬 Comparación",
+        ]
     )
 
     with tab1:
@@ -900,6 +1152,11 @@ elif seccion == "🤖 Modelo":
         )
 
 
+
+    with tab5:
+        mostrar_comparacion_modelos()
+
+
 # ===========================================================================
 # SECCIÓN 6 — VISTA TÉCNICA
 # ===========================================================================
@@ -956,6 +1213,43 @@ elif seccion == "⚙️ Vista técnica":
             st.success(f"✅ `{nombre}` — {size_kb:.1f} KB — `{ruta}`")
         else:
             st.error(f"❌ `{nombre}` no encontrado → Ejecuta: `{cmd}`")
+
+    st.markdown("#### Archivos opcionales de comparación de modelos")
+    archivos_comparacion = [
+        (
+            "classification_model_comparison.csv",
+            PATHS["classification_comparison"],
+            "python models/compare_classification_models.py",
+        ),
+        (
+            "classification_model_comparison_summary.json",
+            PATHS["classification_summary"],
+            "python models/compare_classification_models.py",
+        ),
+        (
+            "classification_tuning_results.json",
+            PATHS["classification_tuning"],
+            "python models/compare_classification_models.py",
+        ),
+        (
+            "regression_model_comparison.csv",
+            PATHS["regression_comparison"],
+            "python models/compare_regression_models.py",
+        ),
+        (
+            "regression_model_comparison_summary.json",
+            PATHS["regression_summary"],
+            "python models/compare_regression_models.py",
+        ),
+        (
+            "regression_tuning_results.json",
+            PATHS["regression_tuning"],
+            "python models/compare_regression_models.py",
+        ),
+    ]
+
+    for nombre, ruta, cmd in archivos_comparacion:
+        mostrar_estado_archivo_opcional(nombre, ruta, cmd)
 
     st.markdown("---")
 
@@ -1016,15 +1310,18 @@ elif seccion == "⚙️ Vista técnica":
         "python etl/etl_meteo_main.py\n\n"
         "# 3. Entrenar modelo\n"
         "python models/train_model.py\n\n"
-        "# 4. Generar predicción día siguiente\n"
+        "# 4. Comparar modelos y tuning\n"
+        "python models/compare_classification_models.py\n"
+        "python models/compare_regression_models.py\n\n"
+        "# 5. Generar predicción día siguiente\n"
         "python models/predict.py\n\n"
-        "# 5. Generar pronóstico 7 días\n"
+        "# 6. Generar pronóstico 7 días\n"
         "python etl/extract_meteo_forecast.py\n"
         "python models/train_forecast_model.py\n"
         "python models/predict_7_days.py\n\n"
-        "# 6. Lanzar dashboard\n"
+        "# 7. Lanzar dashboard\n"
         "streamlit run dashboards/app.py\n\n"
-        "# 7. Ejecutar todos los tests\n"
+        "# 8. Ejecutar todos los tests\n"
         "pytest tests/ -v",
         language="bash",
     )

@@ -179,20 +179,52 @@ def mostrar_estado_archivo_opcional(nombre: str, ruta: Path, comando: str) -> No
         st.warning(f"⚠️ `{nombre}` no encontrado → Ejecuta: `{comando}`")
 
 
+def _agregar_rol_modelo(
+    df_modelos: pd.DataFrame,
+    modelo_mejor: str | None,
+    modelo_productivo: str,
+) -> pd.DataFrame:
+    """
+    Agrega una columna de rol para diferenciar el modelo con mejor métrica
+    puntual del modelo usado operativamente en el sistema.
+    """
+    df_out = df_modelos.copy()
+
+    def rol(nombre: str) -> str:
+        marcas = []
+        if modelo_mejor and nombre == modelo_mejor:
+            marcas.append("🏆 Mejor métrica puntual")
+        if nombre == modelo_productivo:
+            marcas.append("⚙️ Modelo productivo")
+        return " | ".join(marcas) if marcas else "—"
+
+    if "modelo" in df_out.columns:
+        df_out.insert(1, "rol", df_out["modelo"].apply(rol))
+
+    return df_out
+
+
 def mostrar_comparacion_modelos() -> None:
     """
     Muestra la comparación de modelos de clasificación y regresión.
 
-    Esta sección permite defender la elección del modelo final con evidencia:
-    tablas de métricas, modelo ganador, justificación y resultados de tuning.
+    La comparación identifica el mejor desempeño puntual según la métrica
+    seleccionada. Además, diferencia ese resultado del modelo productivo usado
+    por el sistema, que se mantiene como RandomForest por criterios de robustez,
+    interpretabilidad y operación.
     """
     st.subheader("🔬 Comparación de modelos")
     st.markdown(
         """
-Esta sección compara distintos algoritmos para justificar la selección del
-modelo final. En **clasificación** se prioriza el **F1 ponderado**, porque
+Esta sección compara distintos algoritmos para justificar la selección técnica
+del sistema. En **clasificación** se prioriza el **F1 ponderado**, porque
 considera el desbalance entre clases. En **regresión** se prioriza el **RMSE**,
 porque penaliza con mayor fuerza los errores grandes en la estimación de MP2.5.
+
+**Importante:** el modelo con mejor métrica puntual no siempre tiene que ser el
+modelo productivo final. En este proyecto se mantiene **RandomForest** como
+modelo operativo por su robustez ante picos de MP2.5, su capacidad para capturar
+relaciones no lineales y su interpretabilidad mediante importancia de variables.
 
 El tuning se realiza con **TimeSeriesSplit** para respetar el orden temporal de
 los datos y reducir el riesgo de fuga de información futura.
@@ -208,12 +240,15 @@ los datos y reducir el riesgo de fuga de información futura.
     reg_tuning = cargar_json_seguro(str(PATHS["regression_tuning"]))
 
     if clf_df is None and reg_df is None:
-        st.warning(
-            "No se encontraron resultados de comparación de modelos. "
-            "Ejecuta primero:\n\n"
-            "`python models/compare_classification_models.py`\n\n"
-            "`python models/compare_regression_models.py`"
-        )
+        st.warning("""
+No se encontraron resultados de comparación de modelos.
+
+Ejecuta primero:
+
+`python models/compare_classification_models.py`
+
+`python models/compare_regression_models.py`
+        """)
         return
 
     tab_clf, tab_reg = st.tabs(["📊 Clasificación", "📈 Regresión"])
@@ -223,6 +258,13 @@ los datos y reducir el riesgo de fuga de información futura.
     # ------------------------------------------------------------------
     with tab_clf:
         st.markdown("### Modelos de clasificación")
+        st.caption(
+            "🏆 indica el mejor F1 ponderado en la comparación. "
+            "⚙️ indica el modelo productivo usado por el sistema."
+        )
+
+        modelo_productivo_clf = "RandomForestClassifier"
+        modelo_mejor_clf = clf_summary.get("mejor_modelo") if clf_summary else None
 
         if clf_df is None:
             st.warning(
@@ -230,19 +272,25 @@ los datos y reducir el riesgo de fuga de información futura.
                 "Ejecuta: `python models/compare_classification_models.py`"
             )
         else:
+            clf_mostrar = _agregar_rol_modelo(
+                clf_df,
+                modelo_mejor=modelo_mejor_clf,
+                modelo_productivo=modelo_productivo_clf,
+            )
             columnas_clf = [
                 c for c in [
                     "modelo",
+                    "rol",
                     "accuracy",
                     "precision_weighted",
                     "recall_weighted",
                     "f1_weighted",
                 ]
-                if c in clf_df.columns
+                if c in clf_mostrar.columns
             ]
 
             st.dataframe(
-                clf_df[columnas_clf],
+                clf_mostrar[columnas_clf],
                 use_container_width=True,
                 hide_index=True,
             )
@@ -270,8 +318,12 @@ los datos y reducir el riesgo de fuga de información futura.
 
         if clf_summary:
             st.markdown("#### Resumen de selección")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Mejor modelo", clf_summary.get("mejor_modelo", "N/D"))
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric(
+                "Mejor métrica puntual",
+                clf_summary.get("mejor_modelo", "N/D"),
+                help="Modelo con mayor F1 weighted en la comparación.",
+            )
             col2.metric("Métrica usada", clf_summary.get("metrica_seleccion", "N/D"))
 
             mejor_f1 = clf_summary.get("mejor_f1_weighted")
@@ -279,10 +331,19 @@ los datos y reducir el riesgo de fuga de información futura.
                 "Mejor F1 weighted",
                 f"{mejor_f1:.3f}" if isinstance(mejor_f1, (int, float)) else "N/D",
             )
+            col4.metric("Modelo productivo", modelo_productivo_clf)
+
+            st.info(
+                "La comparación muestra el mejor desempeño puntual según F1 weighted. "
+                "Para la operación del sistema se mantiene RandomForestClassifier, "
+                "porque ofrece mayor robustez ante outliers, captura relaciones no "
+                "lineales y permite explicar el modelo con feature importance."
+            )
 
             justificacion = clf_summary.get("justificacion")
             if justificacion:
-                st.info(justificacion)
+                with st.expander("Ver justificación generada por la comparación"):
+                    st.write(justificacion)
 
         if clf_tuning:
             with st.expander("Ver tuning de clasificación"):
@@ -297,6 +358,13 @@ los datos y reducir el riesgo de fuga de información futura.
     # ------------------------------------------------------------------
     with tab_reg:
         st.markdown("### Modelos de regresión")
+        st.caption(
+            "🏆 indica el menor RMSE en la comparación. "
+            "⚙️ indica el modelo productivo usado para el pronóstico."
+        )
+
+        modelo_productivo_reg = "RandomForestRegressor"
+        modelo_mejor_reg = reg_summary.get("mejor_modelo") if reg_summary else None
 
         if reg_df is None:
             st.warning(
@@ -304,13 +372,18 @@ los datos y reducir el riesgo de fuga de información futura.
                 "Ejecuta: `python models/compare_regression_models.py`"
             )
         else:
+            reg_mostrar = _agregar_rol_modelo(
+                reg_df,
+                modelo_mejor=modelo_mejor_reg,
+                modelo_productivo=modelo_productivo_reg,
+            )
             columnas_reg = [
-                c for c in ["modelo", "mae", "rmse", "r2"]
-                if c in reg_df.columns
+                c for c in ["modelo", "rol", "mae", "rmse", "r2"]
+                if c in reg_mostrar.columns
             ]
 
             st.dataframe(
-                reg_df[columnas_reg],
+                reg_mostrar[columnas_reg],
                 use_container_width=True,
                 hide_index=True,
             )
@@ -338,8 +411,12 @@ los datos y reducir el riesgo de fuga de información futura.
 
         if reg_summary:
             st.markdown("#### Resumen de selección")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Mejor modelo", reg_summary.get("mejor_modelo", "N/D"))
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric(
+                "Mejor métrica puntual",
+                reg_summary.get("mejor_modelo", "N/D"),
+                help="Modelo con menor RMSE en la comparación.",
+            )
             col2.metric("Métrica usada", reg_summary.get("metrica_seleccion", "N/D"))
 
             mejor_rmse = reg_summary.get("mejor_rmse")
@@ -349,10 +426,19 @@ los datos y reducir el riesgo de fuga de información futura.
                 if isinstance(mejor_rmse, (int, float))
                 else "N/D",
             )
+            col4.metric("Modelo productivo", modelo_productivo_reg)
+
+            st.info(
+                "La comparación muestra el menor RMSE puntual. Para el pronóstico "
+                "operativo se mantiene RandomForestRegressor, porque es más robusto "
+                "ante picos extremos de MP2.5 y puede capturar relaciones no lineales "
+                "entre meteorología, estacionalidad y contaminación."
+            )
 
             justificacion = reg_summary.get("justificacion")
             if justificacion:
-                st.info(justificacion)
+                with st.expander("Ver justificación generada por la comparación"):
+                    st.write(justificacion)
 
         if reg_tuning:
             with st.expander("Ver tuning de regresión"):
@@ -1010,6 +1096,11 @@ elif seccion == "🤖 Modelo":
     col2.metric("F1 weighted",   f"{metricas['f1_weighted']:.1%}")
     col3.metric("Precision",     f"{metricas['precision_weighted']:.1%}")
     col4.metric("Recall",        f"{metricas['recall_weighted']:.1%}")
+    st.caption(
+        "Estas métricas corresponden al modelo productivo actual usado por "
+        "el sistema: RandomForestClassifier. La pestaña Comparación muestra "
+        "además el mejor desempeño puntual entre varios algoritmos."
+    )
 
     st.markdown("---")
     tab1, tab2, tab3, tab4, tab5 = st.tabs(

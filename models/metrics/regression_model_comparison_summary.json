@@ -1,9 +1,9 @@
 {
   "mejor_modelo": "LinearRegression",
   "metrica_seleccion": "rmse",
-  "mejor_rmse": 6.621,
-  "mejor_mae": 4.215,
-  "mejor_r2": 0.7029,
+  "mejor_rmse": 6.839,
+  "mejor_mae": 4.421,
+  "mejor_r2": 0.6962,
   "justificacion": "LinearRegression obtuvo el menor RMSE. Esto indica una relación aproximadamente lineal en este conjunto, aunque puede no capturar interacciones no lineales asociadas a meteorología y contaminación.",
   "cantidad_modelos_comparados": 4,
   "split_tipo": "temporal",

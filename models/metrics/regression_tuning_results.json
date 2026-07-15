@@ -4,7 +4,7 @@
     "min_samples_split": 5,
     "n_estimators": 200
   },
-  "mejor_score_cv": 7.081,
+  "mejor_score_cv": 7.128,
   "metrica_cv": "rmse (neg_root_mean_squared_error)",
   "cv_tipo": "TimeSeriesSplit",
   "n_splits_cv": 3,

@@ -1,8 +1,8 @@
 {
   "mejor_modelo": "LogisticRegression",
   "metrica_seleccion": "f1_weighted",
-  "mejor_f1_weighted": 0.8831,
-  "mejor_accuracy": 0.8774,
+  "mejor_f1_weighted": 0.8657,
+  "mejor_accuracy": 0.8576,
   "justificacion": "LogisticRegression obtuvo el mejor f1_weighted. Funciona como baseline lineal y permite una interpretación simple, aunque puede capturar menos relaciones no lineales.",
   "cantidad_modelos_comparados": 4,
   "split_tipo": "temporal",
@@ -10,8 +10,8 @@
   "modelos_comparados": [
     "LogisticRegression",
     "RandomForestClassifier",
-    "DecisionTreeClassifier",
-    "GradientBoostingClassifier"
+    "GradientBoostingClassifier",
+    "DecisionTreeClassifier"
   ],
   "interpretacion": "f1_weighted se usa porque considera precision y recall ponderados por la cantidad de observaciones de cada clase."
 }
